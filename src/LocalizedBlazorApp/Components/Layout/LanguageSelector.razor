@@ -1,0 +1,50 @@
+﻿@using Microsoft.AspNetCore.Localization
+@using Microsoft.AspNetCore.Http
+@using System.Globalization
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<div class="language-selector">
+    <label for="languageDropdown">🌍</label>
+    <select id="languageDropdown" @onchange="OnCultureChange">
+        <option value="pt-BR">Português (Brasil)</option>
+        <option value="en-US">English (US)</option>
+        <option value="it-IT">Italiano</option>
+    </select>
+</div>
+
+@code {
+    /// <summary>
+    /// Evento chamado quando o usuário seleciona uma nova cultura.
+    /// Define a cultura atual, cria o cookie esperado pelo middleware de localização
+    /// e força o reload da página para que a nova cultura seja aplicada.
+    /// </summary>
+    /// <param name="e">Evento com a cultura selecionada.</param>
+    private async Task OnCultureChange(ChangeEventArgs e)
+    {
+        var selectedCulture = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(selectedCulture))
+        {
+            var culture = new CultureInfo(selectedCulture);
+
+            // Define a cultura atual na thread atual
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+
+            // Cria o valor do cookie no formato esperado (ex: "c=it-IT|uic=it-IT")
+            var requestCulture = new RequestCulture(selectedCulture);
+            var cultureCookieValue = CookieRequestCultureProvider.MakeCookieValue(requestCulture);
+
+            // Seta o cookie usando JavaScript.
+            // O cookie padrão é ".AspNetCore.Culture" e deve ser aplicado no path raiz.
+            await JS.InvokeVoidAsync("eval", $"document.cookie = '.AspNetCore.Culture={cultureCookieValue};path=/'");
+
+            // Opcional: pode continuar salvando no localStorage se desejar
+            await JS.InvokeVoidAsync("localStorage.setItem", "blazorCulture", selectedCulture);
+
+            // Força um reload completo para que o middleware leia o cookie atualizado
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        }
+    }
+}

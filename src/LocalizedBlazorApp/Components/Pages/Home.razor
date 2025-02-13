@@ -1,7 +1,13 @@
 ﻿@page "/"
+@using LocalizedBlazorApp.Resources
+@using Microsoft.Extensions.Localization
+@using System.Globalization
+@inject IStringLocalizer<SharedResource> Localizer
 
 <PageTitle>Home</PageTitle>
 
 <h1>Hello, world!</h1>
-
+<h1>@Localizer["Title"]</h1>
+<h2>Selected culture: (@CultureInfo.CurrentCulture.Name / @CultureInfo.CurrentUICulture.Name)</h2>
+<br />
 Welcome to your new app.
