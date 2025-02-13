@@ -7,7 +7,8 @@
 
 <div class="language-selector">
     <label for="languageDropdown">🌍</label>
-    <select id="languageDropdown" @onchange="OnCultureChange">
+    <!-- O binding é feito na propriedade 'CurrentCulture' -->
+    <select id="languageDropdown" @bind="CurrentCulture">
         <option value="pt-BR">Português (Brasil)</option>
         <option value="en-US">English (US)</option>
         <option value="it-IT">Italiano</option>
@@ -15,35 +16,51 @@
 </div>
 
 @code {
-    /// <summary>
-    /// Evento chamado quando o usuário seleciona uma nova cultura.
-    /// Define a cultura atual, cria o cookie esperado pelo middleware de localização
-    /// e força o reload da página para que a nova cultura seja aplicada.
-    /// </summary>
-    /// <param name="e">Evento com a cultura selecionada.</param>
-    private async Task OnCultureChange(ChangeEventArgs e)
-    {
-        var selectedCulture = e.Value?.ToString();
-        if (!string.IsNullOrEmpty(selectedCulture))
-        {
-            var culture = new CultureInfo(selectedCulture);
+    // Valor interno
+    private string currentCulture = CultureInfo.CurrentCulture.Name;
 
-            // Define a cultura atual na thread atual
+    /// <summary>
+    /// Propriedade usada para binding. Quando alterada, dispara a mudança de cultura.
+    /// </summary>
+    private string CurrentCulture
+    {
+        get => currentCulture;
+        set
+        {
+            if (currentCulture != value)
+            {
+                currentCulture = value;
+                // Chama o método assíncrono sem esperar o resultado
+                _ = OnCultureChange(value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Atualiza a cultura, define o cookie e força o reload da página.
+    /// </summary>
+    /// <param name="newCulture">A nova cultura selecionada.</param>
+    private async Task OnCultureChange(string newCulture)
+    {
+        if (!string.IsNullOrEmpty(newCulture))
+        {
+            var culture = new CultureInfo(newCulture);
+
+            // Atualiza a cultura atual na thread
             CultureInfo.DefaultThreadCurrentCulture = culture;
             CultureInfo.DefaultThreadCurrentUICulture = culture;
 
-            // Cria o valor do cookie no formato esperado (ex: "c=it-IT|uic=it-IT")
-            var requestCulture = new RequestCulture(selectedCulture);
+            // Cria o cookie no formato esperado pelo middleware
+            var requestCulture = new RequestCulture(newCulture);
             var cultureCookieValue = CookieRequestCultureProvider.MakeCookieValue(requestCulture);
 
-            // Seta o cookie usando JavaScript.
-            // O cookie padrão é ".AspNetCore.Culture" e deve ser aplicado no path raiz.
+            // Define o cookie via JavaScript
             await JS.InvokeVoidAsync("eval", $"document.cookie = '.AspNetCore.Culture={cultureCookieValue};path=/'");
 
-            // Opcional: pode continuar salvando no localStorage se desejar
-            await JS.InvokeVoidAsync("localStorage.setItem", "blazorCulture", selectedCulture);
+            // Opcional: atualizar também no localStorage se necessário
+            await JS.InvokeVoidAsync("localStorage.setItem", "blazorCulture", newCulture);
 
-            // Força um reload completo para que o middleware leia o cookie atualizado
+            // Força o reload completo da página
             NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
         }
     }
